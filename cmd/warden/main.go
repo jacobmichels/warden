@@ -73,6 +73,11 @@ func createApplicationCommands(rcon *rcon.Client) ([]*discordgo.ApplicationComma
 						},
 					},
 				},
+				{
+					Name:        "list",
+					Description: "List all whitelisted players",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
 			},
 		},
 	}
@@ -123,6 +128,19 @@ func createApplicationCommands(rcon *rcon.Client) ([]*discordgo.ApplicationComma
 			}
 
 			discord.InteractionRespond(s, i, fmt.Sprintf("User %s removed from the whitelist", user))
+		},
+		"whitelist-list": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			log.Println("Request receieved: LIST")
+
+			output, err := rcon.SendCommand("whitelist list")
+			if err != nil {
+				log.Printf("whitelist-list command failed: %s", err)
+				discord.InteractionRespond(s, i, "Internal error, please try again later. If error persists, please contact the bot owner.")
+
+				return
+			}
+
+			discord.InteractionRespond(s, i, output)
 		},
 	}
 
