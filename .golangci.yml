@@ -6,3 +6,4 @@ linters:
     - exhaustruct
     - exhaustivestruct
     - varnamelen
+    - funlen

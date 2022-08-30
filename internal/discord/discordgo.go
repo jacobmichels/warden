@@ -2,7 +2,6 @@ package discord
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -65,16 +64,7 @@ func (d *Discordgo) AddCommandHandlers(handlers map[string]func(s *discordgo.Ses
 	d.session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 		data := interaction.ApplicationCommandData()
 		if len(data.Options) != 1 {
-			err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Flags:   discordgo.MessageFlagsEphemeral,
-					Content: "Invalid command",
-				},
-			})
-			if err != nil {
-				log.Printf("interaction respond failed: %s", err)
-			}
+			InteractionRespond(session, interaction, "Invalid command")
 		}
 
 		if handler, ok := handlers[fmt.Sprintf("%s-%s", data.Name, data.Options[0].Name)]; ok {

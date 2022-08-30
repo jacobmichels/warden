@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jacobmichels/warden/internal/config"
 	"github.com/jacobmichels/warden/internal/discord"
+	"github.com/jacobmichels/warden/internal/rcon"
 	"github.com/jacobmichels/warden/internal/warden"
 )
 
@@ -15,23 +17,29 @@ func main() {
 
 	err := config.Init()
 	if err != nil {
-		log.Fatalf("failed to initialize viper config: %s", err)
+		log.Panicf("failed to initialize viper config: %s", err)
 	}
 
-	client, err := discord.NewClient("Bot " + config.GetStr("discord.token"))
+	discordClient, err := discord.NewClient("Bot " + config.GetStr("discord.token"))
 	if err != nil {
-		log.Fatalf("failed to create discord client: %s", err)
+		log.Panicf("failed to create discord client: %s", err)
 	}
 
-	commands, handlers := createApplicationCommands()
-
-	err = warden.Start(ctx, client, commands, handlers)
+	rconClient, err := rcon.NewClient(config.GetStr("rcon.address"), config.GetStr("rcon.password"))
 	if err != nil {
-		log.Fatal(err)
+		log.Panicf("failed to create rcon client: %s", err)
+	}
+	defer rconClient.Close()
+
+	commands, handlers := createApplicationCommands(rconClient)
+
+	err = warden.Start(ctx, discordClient, commands, handlers)
+	if err != nil {
+		log.Panic(err)
 	}
 }
 
-func createApplicationCommands() ([]*discordgo.ApplicationCommand, map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)) {
+func createApplicationCommands(rcon *rcon.Client) ([]*discordgo.ApplicationCommand, map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)) {
 	commands := []*discordgo.ApplicationCommand{
 		{
 			Name:        "whitelist",
@@ -69,11 +77,35 @@ func createApplicationCommands() ([]*discordgo.ApplicationCommand, map[string]fu
 	}
 
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"whitelist-add": func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
-			log.Printf("got request to add %s to the whitelist", i.ApplicationCommandData().Options[0].Options[0].StringValue())
+		"whitelist-add": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			user := i.ApplicationCommandData().Options[0].Options[0].StringValue()
+
+			log.Printf("got request to add %s to the whitelist", user)
+
+			cmd := fmt.Sprintf("whitelist add %s", user)
+
+			_, err := rcon.SendCommand(cmd)
+			if err != nil {
+				log.Printf("whitelist-add command failed: %s", err)
+				discord.InteractionRespond(s, i, "Internal error, please try again later. If error persists, please contact the bot owner.")
+			}
+
+			discord.InteractionRespond(s, i, fmt.Sprintf("User %s added to the whitelist", user))
 		},
-		"whitelist-remove": func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
-			log.Printf("got request to remove %s from the whitelist", i.ApplicationCommandData().Options[0].Options[0].StringValue())
+		"whitelist-remove": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			user := i.ApplicationCommandData().Options[0].Options[0].StringValue()
+
+			log.Printf("got request to remove %s from the whitelist", user)
+
+			cmd := fmt.Sprintf("whitelist remove %s", user)
+
+			_, err := rcon.SendCommand(cmd)
+			if err != nil {
+				log.Printf("whitelist-remove command failed: %s", err)
+				discord.InteractionRespond(s, i, "Internal error, please try again later. If error persists, please contact the bot owner.")
+			}
+
+			discord.InteractionRespond(s, i, fmt.Sprintf("User %s removed from the whitelist", user))
 		},
 	}
 

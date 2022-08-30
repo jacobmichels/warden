@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/bwmarrin/discordgo v0.26.1
+	github.com/gorcon/rcon v1.3.3
 	github.com/spf13/viper v1.12.0
 )
 
