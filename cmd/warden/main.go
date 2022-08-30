@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jacobmichels/warden/internal/config"
@@ -80,14 +81,22 @@ func createApplicationCommands(rcon *rcon.Client) ([]*discordgo.ApplicationComma
 		"whitelist-add": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			user := i.ApplicationCommandData().Options[0].Options[0].StringValue()
 
-			log.Printf("got request to add %s to the whitelist", user)
+			log.Printf("Request receieved: ADD %s", user)
 
 			cmd := fmt.Sprintf("whitelist add %s", user)
 
-			_, err := rcon.SendCommand(cmd)
+			output, err := rcon.SendCommand(cmd)
 			if err != nil {
 				log.Printf("whitelist-add command failed: %s", err)
 				discord.InteractionRespond(s, i, "Internal error, please try again later. If error persists, please contact the bot owner.")
+
+				return
+			}
+
+			if strings.Contains(output, "That player does not exist") {
+				discord.InteractionRespond(s, i, fmt.Sprintf("User %s does not exist. The whitelist was not updated.", user))
+
+				return
 			}
 
 			discord.InteractionRespond(s, i, fmt.Sprintf("User %s added to the whitelist", user))
@@ -95,14 +104,22 @@ func createApplicationCommands(rcon *rcon.Client) ([]*discordgo.ApplicationComma
 		"whitelist-remove": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			user := i.ApplicationCommandData().Options[0].Options[0].StringValue()
 
-			log.Printf("got request to remove %s from the whitelist", user)
+			log.Printf("Request receieved: REMOVE %s", user)
 
 			cmd := fmt.Sprintf("whitelist remove %s", user)
 
-			_, err := rcon.SendCommand(cmd)
+			output, err := rcon.SendCommand(cmd)
 			if err != nil {
 				log.Printf("whitelist-remove command failed: %s", err)
 				discord.InteractionRespond(s, i, "Internal error, please try again later. If error persists, please contact the bot owner.")
+
+				return
+			}
+
+			if strings.Contains(output, "That player does not exist") {
+				discord.InteractionRespond(s, i, fmt.Sprintf("User %s does not exist. The whitelist was not updated.", user))
+
+				return
 			}
 
 			discord.InteractionRespond(s, i, fmt.Sprintf("User %s removed from the whitelist", user))
